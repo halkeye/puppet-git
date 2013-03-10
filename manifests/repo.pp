@@ -24,6 +24,7 @@ define git::repo(
   $owner    = 'root',
   $group    = 'root',
   $update   = false,
+  $environment = null,
   $bare     = false
 ){
 
@@ -63,38 +64,43 @@ define git::repo(
   }
 
   exec {"git_repo_${name}":
-    command => $init_cmd,
-    user    => $owner,
-    creates => $creates,
-    require => Package[$git::params::package],
-    timeout => 600,
+    command     => $init_cmd,
+    user        => $owner,
+    creates     => $creates,
+    environment => $environment,
+    require     => Package[$git::params::package],
+    logoutput   => true,
+    timeout     => 600,
   }
 
   # I think tagging works, but it's possible setting a tag and a branch will just fight.
   # It should change branches too...
   if $git_tag {
     exec {"git_${name}_co_tag":
-      user    => $owner,
-      cwd     => $path,
-      command => "${git::params::bin} checkout ${git_tag}",
-      unless  => "${git::params::bin} describe --tag|/bin/grep -P '${git_tag}'",
-      require => Exec["git_repo_${name}"],
+      user        => $owner,
+      cwd         => $path,
+      command     => "${git::params::bin} checkout ${git_tag}",
+      unless      => "${git::params::bin} describe --tag|/bin/grep -P '${git_tag}'",
+      environment => $environment,
+      require     => Exec["git_repo_${name}"],
     }
   } else {
     exec {"git_${name}_co_branch":
-      user    => $owner,
-      cwd     => $path,
-      command => "${git::params::bin} checkout ${branch}",
-      unless  => "${git::params::bin} branch|/bin/grep -P '\\* ${branch}'",
-      require => Exec["git_repo_${name}"],
+      user          => $owner,
+      cwd           => $path,
+      command       => "${git::params::bin} checkout ${branch}",
+      unless        => "${git::params::bin} branch|/bin/grep -P '\\* ${branch}'",
+      environment   => $environment,
+      require       => Exec["git_repo_${name}"],
     }
     if $update {
       exec {"git_${name}_pull":
-        user    => $owner,
-        cwd     => $path,
-        command => "${git::params::bin} reset --hard HEAD && ${git::params::bin} pull origin ${branch}",
-        unless  => "${git::params::bin} diff origin --no-color --exit-code",
-        require => Exec["git_repo_${name}"],
+        user        => $owner,
+        cwd         => $path,
+        command     => "${git::params::bin} reset --hard HEAD && ${git::params::bin} pull origin ${branch}",
+        unless      => "${git::params::bin} diff origin --no-color --exit-code",
+        environment => $environment,
+        require     => Exec["git_repo_${name}"],
       }
     }
   }
